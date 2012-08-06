@@ -1,1969 +1,689 @@
-<?php
-/**
- * Copyright 2011 Facebook, Inc.
+/*
+ * Copyright 2010 Facebook
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License. You may obtain
- * a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ 
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-class PHPSDKTestCase extends PHPUnit_Framework_TestCase {
-  const APP_ID = '117743971608120';
-  const SECRET = '943716006e74d9b9283d4d5d8ab93204';
 
-  const MIGRATED_APP_ID = '174236045938435';
-  const MIGRATED_SECRET = '0073dce2d95c4a5c2922d1827ea0cca6';
+#import "FBDialog.h"
+#import "Facebook.h"
+#import "FBFrictionlessRequestSettings.h"
+#import "JSON.h"
 
-  private static $kExpiredAccessToken = '206492729383450|2.N4RKywNPuHAey7CK56_wmg__.3600.1304560800.1-214707|6Q14AfpYi_XJB26aRQumouzJiGA';
-  private static $kValidSignedRequest = '1sxR88U4SW9m6QnSxwCEw_CObqsllXhnpP5j2pxD97c.eyJhbGdvcml0aG0iOiJITUFDLVNIQTI1NiIsImV4cGlyZXMiOjEyODEwNTI4MDAsIm9hdXRoX3Rva2VuIjoiMTE3NzQzOTcxNjA4MTIwfDIuVlNUUWpub3hYVVNYd1RzcDB1U2g5d19fLjg2NDAwLjEyODEwNTI4MDAtMTY3Nzg0NjM4NXx4NURORHBtcy1nMUM0dUJHQVYzSVdRX2pYV0kuIiwidXNlcl9pZCI6IjE2Nzc4NDYzODUifQ';
-  private static $kNonTosedSignedRequest = 'c0Ih6vYvauDwncv0n0pndr0hP0mvZaJPQDPt6Z43O0k.eyJhbGdvcml0aG0iOiJITUFDLVNIQTI1NiJ9';
-  private static $kSignedRequestWithBogusSignature = '1sxR32U4SW9m6QnSxwCEw_CObqsllXhnpP5j2pxD97c.eyJhbGdvcml0aG0iOiJITUFDLVNIQTI1NiIsImV4cGlyZXMiOjEyODEwNTI4MDAsIm9hdXRoX3Rva2VuIjoiMTE3NzQzOTcxNjA4MTIwfDIuVlNUUWpub3hYVVNYd1RzcDB1U2g5d19fLjg2NDAwLjEyODEwNTI4MDAtMTY3Nzg0NjM4NXx4NURORHBtcy1nMUM0dUJHQVYzSVdRX2pYV0kuIiwidXNlcl9pZCI6IjE2Nzc4NDYzODUifQ';
-  private static $kSignedRequestWithWrongAlgo = '2--BA2TJLbWV3uBHiB7ztrA4byNm9g0Sz8cv-x9-zi8.eyJhbGdvcml0aG0iOiJITUFDLVNIQTI1NmEiLCJpc3N1ZWRfYXQiOjEzNDI0ODc0ODJ9';
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// global
 
-  public function testConstructor() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $this->assertEquals($facebook->getAppId(), self::APP_ID,
-                        'Expect the App ID to be set.');
-    $this->assertEquals($facebook->getAppSecret(), self::SECRET,
-                        'Expect the API secret to be set.');
-  }
+static CGFloat kBorderGray[4] = {0.3, 0.3, 0.3, 0.8};
+static CGFloat kBorderBlack[4] = {0.3, 0.3, 0.3, 1};
 
-  public function testConstructorWithFileUpload() {
-    $facebook = new TransientFacebook(array(
-      'appId'      => self::APP_ID,
-      'secret'     => self::SECRET,
-      'fileUpload' => true,
-    ));
-    $this->assertEquals($facebook->getAppId(), self::APP_ID,
-                        'Expect the App ID to be set.');
-    $this->assertEquals($facebook->getAppSecret(), self::SECRET,
-                        'Expect the API secret to be set.');
-    $this->assertTrue($facebook->getFileUploadSupport(),
-                      'Expect file upload support to be on.');
-    // alias (depricated) for getFileUploadSupport -- test until removed
-    $this->assertTrue($facebook->useFileUploadSupport(),
-                      'Expect file upload support to be on.');
-  }
+static CGFloat kTransitionDuration = 0.3;
 
-  public function testSetAppId() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $facebook->setAppId('dummy');
-    $this->assertEquals($facebook->getAppId(), 'dummy',
-                        'Expect the App ID to be dummy.');
-  }
+static CGFloat kPadding = 0;
+static CGFloat kBorderWidth = 10;
 
-  public function testSetAPISecret() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $facebook->setApiSecret('dummy');
-    $this->assertEquals($facebook->getApiSecret(), 'dummy',
-                        'Expect the API secret to be dummy.');
-  }
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
-  public function testSetAPPSecret() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $facebook->setAppSecret('dummy');
-    $this->assertEquals($facebook->getAppSecret(), 'dummy',
-                        'Expect the API secret to be dummy.');
-  }
-
-  public function testSetAccessToken() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $facebook->setAccessToken('saltydog');
-    $this->assertEquals($facebook->getAccessToken(), 'saltydog',
-                        'Expect installed access token to remain \'saltydog\'');
-  }
-
-  public function testSetFileUploadSupport() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $this->assertFalse($facebook->getFileUploadSupport(),
-                       'Expect file upload support to be off.');
-    // alias for getFileUploadSupport (depricated), testing until removed
-    $this->assertFalse($facebook->useFileUploadSupport(),
-                       'Expect file upload support to be off.');
-    $facebook->setFileUploadSupport(true);
-    $this->assertTrue($facebook->getFileUploadSupport(),
-                      'Expect file upload support to be on.');
-    // alias for getFileUploadSupport (depricated), testing until removed
-    $this->assertTrue($facebook->useFileUploadSupport(),
-                      'Expect file upload support to be on.');
-  }
-
-  public function testGetCurrentURL() {
-    $facebook = new FBGetCurrentURLFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    // fake the HPHP $_SERVER globals
-    $_SERVER['HTTP_HOST'] = 'www.test.com';
-    $_SERVER['REQUEST_URI'] = '/unit-tests.php?one=one&two=two&three=three';
-    $current_url = $facebook->publicGetCurrentUrl();
-    $this->assertEquals(
-      'http://www.test.com/unit-tests.php?one=one&two=two&three=three',
-      $current_url,
-      'getCurrentUrl function is changing the current URL');
-
-    // ensure structure of valueless GET params is retained (sometimes
-    // an = sign was present, and sometimes it was not)
-    // first test when equal signs are present
-    $_SERVER['HTTP_HOST'] = 'www.test.com';
-    $_SERVER['REQUEST_URI'] = '/unit-tests.php?one=&two=&three=';
-    $current_url = $facebook->publicGetCurrentUrl();
-    $this->assertEquals(
-      'http://www.test.com/unit-tests.php?one=&two=&three=',
-      $current_url,
-      'getCurrentUrl function is changing the current URL');
-
-    // now confirm that
-    $_SERVER['HTTP_HOST'] = 'www.test.com';
-    $_SERVER['REQUEST_URI'] = '/unit-tests.php?one&two&three';
-    $current_url = $facebook->publicGetCurrentUrl();
-    $this->assertEquals(
-      'http://www.test.com/unit-tests.php?one&two&three',
-      $current_url,
-      'getCurrentUrl function is changing the current URL');
-  }
-
-  public function testGetLoginURL() {
-    $facebook = new Facebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    // fake the HPHP $_SERVER globals
-    $_SERVER['HTTP_HOST'] = 'www.test.com';
-    $_SERVER['REQUEST_URI'] = '/unit-tests.php';
-    $login_url = parse_url($facebook->getLoginUrl());
-    $this->assertEquals($login_url['scheme'], 'https');
-    $this->assertEquals($login_url['host'], 'www.facebook.com');
-    $this->assertEquals($login_url['path'], '/dialog/oauth');
-    $expected_login_params =
-      array('client_id' => self::APP_ID,
-            'redirect_uri' => 'http://www.test.com/unit-tests.php');
-
-    $query_map = array();
-    parse_str($login_url['query'], $query_map);
-    $this->assertIsSubset($expected_login_params, $query_map);
-    // we don't know what the state is, but we know it's an md5 and should
-    // be 32 characters long.
-    $this->assertEquals(strlen($query_map['state']), $num_characters = 32);
-  }
-
-  public function testGetLoginURLWithExtraParams() {
-    $facebook = new Facebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    // fake the HPHP $_SERVER globals
-    $_SERVER['HTTP_HOST'] = 'www.test.com';
-    $_SERVER['REQUEST_URI'] = '/unit-tests.php';
-    $extra_params = array('scope' => 'email, sms',
-                          'nonsense' => 'nonsense');
-    $login_url = parse_url($facebook->getLoginUrl($extra_params));
-    $this->assertEquals($login_url['scheme'], 'https');
-    $this->assertEquals($login_url['host'], 'www.facebook.com');
-    $this->assertEquals($login_url['path'], '/dialog/oauth');
-    $expected_login_params =
-      array_merge(
-        array('client_id' => self::APP_ID,
-              'redirect_uri' => 'http://www.test.com/unit-tests.php'),
-        $extra_params);
-    $query_map = array();
-    parse_str($login_url['query'], $query_map);
-    $this->assertIsSubset($expected_login_params, $query_map);
-    // we don't know what the state is, but we know it's an md5 and should
-    // be 32 characters long.
-    $this->assertEquals(strlen($query_map['state']), $num_characters = 32);
-  }
-
-  public function testGetLoginURLWithScopeParamsAsArray() {
-    $facebook = new Facebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    // fake the HPHP $_SERVER globals
-    $_SERVER['HTTP_HOST'] = 'www.test.com';
-    $_SERVER['REQUEST_URI'] = '/unit-tests.php';
-    $scope_params_as_array = array('email','sms','read_stream');
-    $extra_params = array('scope' => $scope_params_as_array,
-                          'nonsense' => 'nonsense');
-    $login_url = parse_url($facebook->getLoginUrl($extra_params));
-    $this->assertEquals($login_url['scheme'], 'https');
-    $this->assertEquals($login_url['host'], 'www.facebook.com');
-    $this->assertEquals($login_url['path'], '/dialog/oauth');
-    // expect api to flatten array params to comma separated list
-    // should do the same here before asserting to make sure API is behaving
-    // correctly;
-    $extra_params['scope'] = implode(',', $scope_params_as_array);
-    $expected_login_params =
-      array_merge(
-        array('client_id' => self::APP_ID,
-              'redirect_uri' => 'http://www.test.com/unit-tests.php'),
-        $extra_params);
-    $query_map = array();
-    parse_str($login_url['query'], $query_map);
-    $this->assertIsSubset($expected_login_params, $query_map);
-    // we don't know what the state is, but we know it's an md5 and should
-    // be 32 characters long.
-    $this->assertEquals(strlen($query_map['state']), $num_characters = 32);
-  }
-
-  public function testGetCodeWithValidCSRFState() {
-    $facebook = new FBCode(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $facebook->setCSRFStateToken();
-    $code = $_REQUEST['code'] = $this->generateMD5HashOfRandomValue();
-    $_REQUEST['state'] = $facebook->getCSRFStateToken();
-    $this->assertEquals($code,
-                        $facebook->publicGetCode(),
-                        'Expect code to be pulled from $_REQUEST[\'code\']');
-  }
-
-  public function testGetCodeWithInvalidCSRFState() {
-    $facebook = new FBCode(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $facebook->setCSRFStateToken();
-    $code = $_REQUEST['code'] = $this->generateMD5HashOfRandomValue();
-    $_REQUEST['state'] = $facebook->getCSRFStateToken().'forgery!!!';
-    $this->assertFalse($facebook->publicGetCode(),
-                       'Expect getCode to fail, CSRF state should not match.');
-  }
-
-  public function testGetCodeWithMissingCSRFState() {
-    $facebook = new FBCode(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $code = $_REQUEST['code'] = $this->generateMD5HashOfRandomValue();
-    // intentionally don't set CSRF token at all
-    $this->assertFalse($facebook->publicGetCode(),
-                       'Expect getCode to fail, CSRF state not sent back.');
-
-  }
-
-  public function testGetUserFromSignedRequest() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $_REQUEST['signed_request'] = self::$kValidSignedRequest;
-    $this->assertEquals('1677846385', $facebook->getUser(),
-                        'Failed to get user ID from a valid signed request.');
-  }
-
-  public function testGetSignedRequestFromCookie() {
-    $facebook = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $_COOKIE[$facebook->publicGetSignedRequestCookieName()] =
-      self::$kValidSignedRequest;
-    $this->assertNotNull($facebook->publicGetSignedRequest());
-    $this->assertEquals('1677846385', $facebook->getUser(),
-                        'Failed to get user ID from a valid signed request.');
-  }
-
-  public function testGetSignedRequestWithIncorrectSignature() {
-    $facebook = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $_COOKIE[$facebook->publicGetSignedRequestCookieName()] =
-      self::$kSignedRequestWithBogusSignature;
-    $this->assertNull($facebook->publicGetSignedRequest());
-  }
-
-  public function testNonUserAccessToken() {
-    $facebook = new FBAccessToken(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    // no cookies, and no request params, so no user or code,
-    // so no user access token (even with cookie support)
-    $this->assertEquals($facebook->publicGetApplicationAccessToken(),
-                        $facebook->getAccessToken(),
-                        'Access token should be that for logged out users.');
-  }
-
-  public function testMissingMetadataCookie() {
-    $fb = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $this->assertEmpty($fb->publicGetMetadataCookie());
-  }
-
-  public function testEmptyMetadataCookie() {
-    $fb = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $_COOKIE[$fb->publicGetMetadataCookieName()] = '';
-    $this->assertEmpty($fb->publicGetMetadataCookie());
-  }
-
-  public function testMetadataCookie() {
-    $fb = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = 'foo';
-    $val = '42';
-    $_COOKIE[$fb->publicGetMetadataCookieName()] = "$key=$val";
-    $this->assertEquals(array($key => $val), $fb->publicGetMetadataCookie());
-  }
-
-  public function testQuotedMetadataCookie() {
-    $fb = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = 'foo';
-    $val = '42';
-    $_COOKIE[$fb->publicGetMetadataCookieName()] = "\"$key=$val\"";
-    $this->assertEquals(array($key => $val), $fb->publicGetMetadataCookie());
-  }
-
-  public function testAPIForLoggedOutUsers() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $response = $facebook->api(array(
-      'method' => 'fql.query',
-      'query' => 'SELECT name FROM user WHERE uid=4',
-    ));
-    $this->assertEquals(count($response), 1,
-                        'Expect one row back.');
-    $this->assertEquals($response[0]['name'], 'Mark Zuckerberg',
-                        'Expect the name back.');
-  }
-
-  public function testAPIWithBogusAccessToken() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $facebook->setAccessToken('this-is-not-really-an-access-token');
-    // if we don't set an access token and there's no way to
-    // get one, then the FQL query below works beautifully, handing
-    // over Zuck's public data.  But if you specify a bogus access
-    // token as I have right here, then the FQL query should fail.
-    // We could return just Zuck's public data, but that wouldn't
-    // advertise the issue that the access token is at worst broken
-    // and at best expired.
-    try {
-      $response = $facebook->api(array(
-        'method' => 'fql.query',
-        'query' => 'SELECT name FROM profile WHERE id=4',
-      ));
-      $this->fail('Should not get here.');
-    } catch(FacebookApiException $e) {
-      $result = $e->getResult();
-      $this->assertTrue(is_array($result), 'expect a result object');
-      $this->assertEquals('190', $result['error_code'], 'expect code');
+static BOOL FBIsDeviceIPad() {
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 30200
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        return YES;
     }
-  }
-
-  public function testAPIGraphPublicData() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $response = $facebook->api('/jerry');
-    $this->assertEquals(
-      $response['id'], '214707', 'should get expected id.');
-  }
-
-  public function testGraphAPIWithBogusAccessToken() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $facebook->setAccessToken('this-is-not-really-an-access-token');
-    try {
-      $response = $facebook->api('/me');
-      $this->fail('Should not get here.');
-    } catch(FacebookApiException $e) {
-      // means the server got the access token and didn't like it
-      $msg = 'OAuthException: Invalid OAuth access token.';
-      $this->assertEquals($msg, (string) $e,
-                          'Expect the invalid OAuth token message.');
-    }
-  }
-
-  public function testGraphAPIWithExpiredAccessToken() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $facebook->setAccessToken(self::$kExpiredAccessToken);
-    try {
-      $response = $facebook->api('/me');
-      $this->fail('Should not get here.');
-    } catch(FacebookApiException $e) {
-      // means the server got the access token and didn't like it
-      $error_msg_start = 'OAuthException: Error validating access token:';
-      $this->assertTrue(strpos((string) $e, $error_msg_start) === 0,
-                        'Expect the token validation error message.');
-    }
-  }
-
-  public function testGraphAPIMethod() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    try {
-      // naitik being bold about deleting his entire record....
-      // let's hope this never actually passes.
-      $response = $facebook->api('/naitik', $method = 'DELETE');
-      $this->fail('Should not get here.');
-    } catch(FacebookApiException $e) {
-      // ProfileDelete means the server understood the DELETE
-      $msg =
-        'OAuthException: (#200) User cannot access this application';
-      $this->assertEquals($msg, (string) $e,
-                          'Expect the invalid session message.');
-    }
-  }
-
-  public function testGraphAPIOAuthSpecError() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::MIGRATED_APP_ID,
-      'secret' => self::MIGRATED_SECRET,
-    ));
-
-    try {
-      $response = $facebook->api('/me', array(
-        'client_id' => self::MIGRATED_APP_ID));
-
-      $this->fail('Should not get here.');
-    } catch(FacebookApiException $e) {
-      // means the server got the access token
-      $msg = 'invalid_request: An active access token must be used '.
-             'to query information about the current user.';
-      $this->assertEquals($msg, (string) $e,
-                          'Expect the invalid session message.');
-    }
-  }
-
-  public function testGraphAPIMethodOAuthSpecError() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::MIGRATED_APP_ID,
-      'secret' => self::MIGRATED_SECRET,
-    ));
-
-    try {
-      $response = $facebook->api('/daaku.shah', 'DELETE', array(
-        'client_id' => self::MIGRATED_APP_ID));
-      $this->fail('Should not get here.');
-    } catch(FacebookApiException $e) {
-      $this->assertEquals(strpos($e, 'invalid_request'), 0);
-    }
-  }
-
-  public function testCurlFailure() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    if (!defined('CURLOPT_TIMEOUT_MS')) {
-      // can't test it if we don't have millisecond timeouts
-      return;
-    }
-
-    $exception = null;
-    try {
-      // we dont expect facebook will ever return in 1ms
-      Facebook::$CURL_OPTS[CURLOPT_TIMEOUT_MS] = 50;
-      $facebook->api('/naitik');
-    } catch(FacebookApiException $e) {
-      $exception = $e;
-    }
-    unset(Facebook::$CURL_OPTS[CURLOPT_TIMEOUT_MS]);
-    if (!$exception) {
-      $this->fail('no exception was thrown on timeout.');
-    }
-
-    $code = $exception->getCode();
-    if ($code != CURLE_OPERATION_TIMEOUTED && $code != CURLE_COULDNT_CONNECT) {
-      $this->fail("Expected curl error code 7 or 28 but got: $code");
-    }
-    $this->assertEquals('CurlException', $exception->getType(), 'expect type');
-  }
-
-  public function testGraphAPIWithOnlyParams() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    $response = $facebook->api('/jerry');
-    $this->assertTrue(isset($response['id']),
-                      'User ID should be public.');
-    $this->assertTrue(isset($response['name']),
-                      'User\'s name should be public.');
-    $this->assertTrue(isset($response['first_name']),
-                      'User\'s first name should be public.');
-    $this->assertTrue(isset($response['last_name']),
-                      'User\'s last name should be public.');
-    $this->assertFalse(isset($response['work']),
-                       'User\'s work history should only be available with '.
-                       'a valid access token.');
-    $this->assertFalse(isset($response['education']),
-                       'User\'s education history should only be '.
-                       'available with a valid access token.');
-    $this->assertFalse(isset($response['verified']),
-                       'User\'s verification status should only be '.
-                       'available with a valid access token.');
-  }
-
-  public function testLoginURLDefaults() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl = rawurlencode('http://fbrell.com/examples');
-    $this->assertNotNull(strpos($facebook->getLoginUrl(), $encodedUrl),
-                         'Expect the current url to exist.');
-  }
-
-  public function testLoginURLDefaultsDropStateQueryParam() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples?state=xx42xx';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $expectEncodedUrl = rawurlencode('http://fbrell.com/examples');
-    $this->assertTrue(strpos($facebook->getLoginUrl(), $expectEncodedUrl) > -1,
-                      'Expect the current url to exist.');
-    $this->assertFalse(strpos($facebook->getLoginUrl(), 'xx42xx'),
-                       'Expect the session param to be dropped.');
-  }
-
-  public function testLoginURLDefaultsDropCodeQueryParam() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples?code=xx42xx';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $expectEncodedUrl = rawurlencode('http://fbrell.com/examples');
-    $this->assertTrue(strpos($facebook->getLoginUrl(), $expectEncodedUrl) > -1,
-                      'Expect the current url to exist.');
-    $this->assertFalse(strpos($facebook->getLoginUrl(), 'xx42xx'),
-                       'Expect the session param to be dropped.');
-  }
-
-  public function testLoginURLDefaultsDropSignedRequestParamButNotOthers() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] =
-      '/examples?signed_request=xx42xx&do_not_drop=xx43xx';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $expectEncodedUrl = rawurlencode('http://fbrell.com/examples');
-    $this->assertFalse(strpos($facebook->getLoginUrl(), 'xx42xx'),
-                       'Expect the session param to be dropped.');
-    $this->assertTrue(strpos($facebook->getLoginUrl(), 'xx43xx') > -1,
-                      'Expect the do_not_drop param to exist.');
-  }
-
-  public function testLoginURLCustomNext() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $next = 'http://fbrell.com/custom';
-    $loginUrl = $facebook->getLoginUrl(array(
-      'redirect_uri' => $next,
-      'cancel_url' => $next
-    ));
-    $currentEncodedUrl = rawurlencode('http://fbrell.com/examples');
-    $expectedEncodedUrl = rawurlencode($next);
-    $this->assertNotNull(strpos($loginUrl, $expectedEncodedUrl),
-                         'Expect the custom url to exist.');
-    $this->assertFalse(strpos($loginUrl, $currentEncodedUrl),
-                      'Expect the current url to not exist.');
-  }
-
-  public function testLogoutURLDefaults() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl = rawurlencode('http://fbrell.com/examples');
-    $this->assertNotNull(strpos($facebook->getLogoutUrl(), $encodedUrl),
-                         'Expect the current url to exist.');
-    $this->assertFalse(strpos($facebook->getLogoutUrl(), self::SECRET));
-  }
-
-  public function testLoginStatusURLDefaults() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl = rawurlencode('http://fbrell.com/examples');
-    $this->assertNotNull(strpos($facebook->getLoginStatusUrl(), $encodedUrl),
-                         'Expect the current url to exist.');
-  }
-
-  public function testLoginStatusURLCustom() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl1 = rawurlencode('http://fbrell.com/examples');
-    $okUrl = 'http://fbrell.com/here1';
-    $encodedUrl2 = rawurlencode($okUrl);
-    $loginStatusUrl = $facebook->getLoginStatusUrl(array(
-      'ok_session' => $okUrl,
-    ));
-    $this->assertNotNull(strpos($loginStatusUrl, $encodedUrl1),
-                         'Expect the current url to exist.');
-    $this->assertNotNull(strpos($loginStatusUrl, $encodedUrl2),
-                         'Expect the custom url to exist.');
-  }
-
-  public function testNonDefaultPort() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com:8080';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl = rawurlencode('http://fbrell.com:8080/examples');
-    $this->assertNotNull(strpos($facebook->getLoginUrl(), $encodedUrl),
-                         'Expect the current url to exist.');
-  }
-
-  public function testSecureCurrentUrl() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $_SERVER['HTTPS'] = 'on';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl = rawurlencode('https://fbrell.com/examples');
-    $this->assertNotNull(strpos($facebook->getLoginUrl(), $encodedUrl),
-                         'Expect the current url to exist.');
-  }
-
-  public function testSecureCurrentUrlWithNonDefaultPort() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com:8080';
-    $_SERVER['REQUEST_URI'] = '/examples';
-    $_SERVER['HTTPS'] = 'on';
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $encodedUrl = rawurlencode('https://fbrell.com:8080/examples');
-    $this->assertNotNull(strpos($facebook->getLoginUrl(), $encodedUrl),
-                         'Expect the current url to exist.');
-  }
-
-  public function testAppSecretCall() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-
-    try {
-      $response = $facebook->api('/' . self::APP_ID . '/insights');
-      $this->fail('Desktop applications need a user token for insights.');
-    } catch (FacebookApiException $e) {
-      // this test is failing as the graph call is returning the wrong
-      // error message
-      $this->assertEquals($e->getMessage(),
-        'An access token is required to request this resource.');
-    } catch (Exception $e) {
-      $this->fail('Incorrect exception type thrown when trying to gain ' .
-        'insights for desktop app without a user access token.');
-    }
-  }
-
-  public function testBase64UrlEncode() {
-    $input = 'Facebook rocks';
-    $output = 'RmFjZWJvb2sgcm9ja3M';
-
-    $this->assertEquals(FBPublic::publicBase64UrlDecode($output), $input);
-  }
-
-  public function testSignedToken() {
-    $facebook = new FBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $payload = $facebook->publicParseSignedRequest(self::$kValidSignedRequest);
-    $this->assertNotNull($payload, 'Expected token to parse');
-    $this->assertEquals($facebook->getSignedRequest(), null);
-    $_REQUEST['signed_request'] = self::$kValidSignedRequest;
-    $this->assertEquals($facebook->getSignedRequest(), $payload);
-  }
-
-  public function testNonTossedSignedtoken() {
-    $facebook = new FBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $payload = $facebook->publicParseSignedRequest(
-      self::$kNonTosedSignedRequest);
-    $this->assertNotNull($payload, 'Expected token to parse');
-    $this->assertNull($facebook->getSignedRequest());
-    $_REQUEST['signed_request'] = self::$kNonTosedSignedRequest;
-    $this->assertEquals($facebook->getSignedRequest(),
-      array('algorithm' => 'HMAC-SHA256'));
-  }
-
-  public function testSignedRequestWithWrongAlgo() {
-    $fb = new FBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $payload = $fb->publicParseSignedRequest(
-      self::$kSignedRequestWithWrongAlgo);
-    $this->assertNull($payload, 'Expected nothing back.');
-  }
-
-  public function testMakeAndParse() {
-    $fb = new FBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $data = array('foo' => 42);
-    $sr = $fb->publicMakeSignedRequest($data);
-    $decoded = $fb->publicParseSignedRequest($sr);
-    $this->assertEquals($data['foo'], $decoded['foo']);
-  }
-
-  /**
-   * @expectedException InvalidArgumentException
-   */
-  public function testMakeSignedRequestExpectsArray() {
-    $fb = new FBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $sr = $fb->publicMakeSignedRequest('');
-  }
-
-  public function testBundledCACert() {
-    $facebook = new TransientFacebook(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-
-      // use the bundled cert from the start
-    Facebook::$CURL_OPTS[CURLOPT_CAINFO] =
-      dirname(__FILE__) . '/../src/fb_ca_chain_bundle.crt';
-    $response = $facebook->api('/naitik');
-
-    unset(Facebook::$CURL_OPTS[CURLOPT_CAINFO]);
-    $this->assertEquals(
-      $response['id'], '5526183', 'should get expected id.');
-  }
-
-  public function testVideoUpload() {
-    $facebook = new FBRecordURL(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-
-    $facebook->api(array('method' => 'video.upload'));
-    $this->assertContains('//api-video.', $facebook->getRequestedURL(),
-                          'video.upload should go against api-video');
-  }
-
-  public function testVideoUploadGraph() {
-    $facebook = new FBRecordURL(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-
-    $facebook->api('/me/videos', 'POST');
-    $this->assertContains('//graph-video.', $facebook->getRequestedURL(),
-                          '/me/videos should go against graph-video');
-  }
-
-  public function testGetUserAndAccessTokenFromSession() {
-    $facebook = new PersistentFBPublic(array(
-                                         'appId'  => self::APP_ID,
-                                         'secret' => self::SECRET
-                                       ));
-
-    $facebook->publicSetPersistentData('access_token',
-                                       self::$kExpiredAccessToken);
-    $facebook->publicSetPersistentData('user_id', 12345);
-    $this->assertEquals(self::$kExpiredAccessToken,
-                        $facebook->getAccessToken(),
-                        'Get access token from persistent store.');
-    $this->assertEquals('12345',
-                        $facebook->getUser(),
-                        'Get user id from persistent store.');
-  }
-
-  public function testGetUserAndAccessTokenFromSignedRequestNotSession() {
-    $facebook = new PersistentFBPublic(array(
-                                         'appId'  => self::APP_ID,
-                                         'secret' => self::SECRET
-                                       ));
-
-    $_REQUEST['signed_request'] = self::$kValidSignedRequest;
-    $facebook->publicSetPersistentData('user_id', 41572);
-    $facebook->publicSetPersistentData('access_token',
-                                       self::$kExpiredAccessToken);
-    $this->assertNotEquals('41572', $facebook->getUser(),
-                           'Got user from session instead of signed request.');
-    $this->assertEquals('1677846385', $facebook->getUser(),
-                        'Failed to get correct user ID from signed request.');
-    $this->assertNotEquals(
-      self::$kExpiredAccessToken,
-      $facebook->getAccessToken(),
-      'Got access token from session instead of signed request.');
-    $this->assertNotEmpty(
-      $facebook->getAccessToken(),
-      'Failed to extract an access token from the signed request.');
-  }
-
-  public function testGetUserWithoutCodeOrSignedRequestOrSession() {
-    $facebook = new PersistentFBPublic(array(
-                                         'appId'  => self::APP_ID,
-                                         'secret' => self::SECRET
-                                       ));
-
-    // deliberately leave $_REQUEST and _$SESSION empty
-    $this->assertEmpty($_REQUEST,
-                       'GET, POST, and COOKIE params exist even though '.
-                       'they should.  Test cannot succeed unless all of '.
-                       '$_REQUEST is empty.');
-    $this->assertEmpty($_SESSION,
-                       'Session is carrying state and should not be.');
-    $this->assertEmpty($facebook->getUser(),
-                       'Got a user id, even without a signed request, '.
-                       'access token, or session variable.');
-    $this->assertEmpty($_SESSION,
-                       'Session superglobal incorrectly populated by getUser.');
-  }
-
-  public function testGetAccessTokenUsingCodeInJsSdkCookie() {
-    $code = 'code1';
-    $access_token = 'at1';
-    $methods_to_stub = array('getSignedRequest', 'getAccessTokenFromCode');
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getSignedRequest')
-      ->will($this->returnValue(array('code' => $code)));
-    $stub
-      ->expects($this->once())
-      ->method('getAccessTokenFromCode')
-      ->will($this->returnValueMap(array(array($code, '', $access_token))));
-    $this->assertEquals($stub->getAccessToken(), $access_token);
-  }
-
-  public function testSignedRequestWithoutAuthClearsData() {
-    $methods_to_stub = array('getSignedRequest', 'clearAllPersistentData');
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getSignedRequest')
-      ->will($this->returnValue(array('foo' => 1)));
-    $stub
-      ->expects($this->once())
-      ->method('clearAllPersistentData');
-    $this->assertEquals(self::APP_ID.'|'.self::SECRET, $stub->getAccessToken());
-  }
-
-  public function testInvalidCodeInSignedRequestWillClearData() {
-    $code = 'code1';
-    $methods_to_stub = array(
-      'getSignedRequest',
-      'getAccessTokenFromCode',
-      'clearAllPersistentData',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getSignedRequest')
-      ->will($this->returnValue(array('code' => $code)));
-    $stub
-      ->expects($this->once())
-      ->method('getAccessTokenFromCode')
-      ->will($this->returnValue(null));
-    $stub
-      ->expects($this->once())
-      ->method('clearAllPersistentData');
-    $this->assertEquals(self::APP_ID.'|'.self::SECRET, $stub->getAccessToken());
-  }
-
-  public function testInvalidCodeWillClearData() {
-    $code = 'code1';
-    $methods_to_stub = array(
-      'getCode',
-      'getAccessTokenFromCode',
-      'clearAllPersistentData',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getCode')
-      ->will($this->returnValue($code));
-    $stub
-      ->expects($this->once())
-      ->method('getAccessTokenFromCode')
-      ->will($this->returnValue(null));
-    $stub
-      ->expects($this->once())
-      ->method('clearAllPersistentData');
-    $this->assertEquals(self::APP_ID.'|'.self::SECRET, $stub->getAccessToken());
-  }
-
-  public function testValidCodeToToken() {
-    $code = 'code1';
-    $access_token = 'at1';
-    $methods_to_stub = array(
-      'getSignedRequest',
-      'getCode',
-      'getAccessTokenFromCode',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getCode')
-      ->will($this->returnValue($code));
-    $stub
-      ->expects($this->once())
-      ->method('getAccessTokenFromCode')
-      ->will($this->returnValueMap(array(array($code, null, $access_token))));
-    $this->assertEquals($stub->getAccessToken(), $access_token);
-  }
-
-  public function testSignedRequestWithoutAuthClearsDataInAvailData() {
-    $methods_to_stub = array('getSignedRequest', 'clearAllPersistentData');
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getSignedRequest')
-      ->will($this->returnValue(array('foo' => 1)));
-    $stub
-      ->expects($this->once())
-      ->method('clearAllPersistentData');
-    $this->assertEquals(0, $stub->getUser());
-  }
-
-  public function testFailedToGetUserFromAccessTokenClearsData() {
-    $methods_to_stub = array(
-      'getAccessToken',
-      'getUserFromAccessToken',
-      'clearAllPersistentData',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getAccessToken')
-      ->will($this->returnValue('at1'));
-    $stub
-      ->expects($this->once())
-      ->method('getUserFromAccessToken');
-    $stub
-      ->expects($this->once())
-      ->method('clearAllPersistentData');
-    $this->assertEquals(0, $stub->getUser());
-  }
-
-  public function testUserFromAccessTokenIsStored() {
-    $methods_to_stub = array(
-      'getAccessToken',
-      'getUserFromAccessToken',
-      'setPersistentData',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $user = 42;
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getAccessToken')
-      ->will($this->returnValue('at1'));
-    $stub
-      ->expects($this->once())
-      ->method('getUserFromAccessToken')
-      ->will($this->returnValue($user));
-    $stub
-      ->expects($this->once())
-      ->method('setPersistentData');
-    $this->assertEquals($user, $stub->getUser());
-  }
-
-  public function testUserFromAccessTokenPullsID() {
-    $methods_to_stub = array(
-      'getAccessToken',
-      'api',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $user = 42;
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getAccessToken')
-      ->will($this->returnValue('at1'));
-    $stub
-      ->expects($this->once())
-      ->method('api')
-      ->will($this->returnValue(array('id' => $user)));
-    $this->assertEquals($user, $stub->getUser());
-  }
-
-  public function testUserFromAccessTokenResetsOnApiException() {
-    $methods_to_stub = array(
-      'getAccessToken',
-      'clearAllPersistentData',
-      'api',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('getAccessToken')
-      ->will($this->returnValue('at1'));
-    $stub
-      ->expects($this->once())
-      ->method('api')
-      ->will($this->throwException(new FacebookApiException(false)));
-    $stub
-      ->expects($this->once())
-      ->method('clearAllPersistentData');
-    $this->assertEquals(0, $stub->getUser());
-  }
-
-  public function testEmptyCodeReturnsFalse() {
-    $fb = new FBPublicGetAccessTokenFromCode(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $this->assertFalse($fb->publicGetAccessTokenFromCode(''));
-    $this->assertFalse($fb->publicGetAccessTokenFromCode(null));
-    $this->assertFalse($fb->publicGetAccessTokenFromCode(false));
-  }
-
-  public function testNullRedirectURIUsesCurrentURL() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-      'getCurrentUrl',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $access_token = 'at1';
-    $stub = $this->getMock(
-      'FBPublicGetAccessTokenFromCode', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue("access_token=$access_token"));
-    $stub
-      ->expects($this->once())
-      ->method('getCurrentUrl');
-    $this->assertEquals(
-      $access_token, $stub->publicGetAccessTokenFromCode('c'));
-  }
-
-  public function testNullRedirectURIAllowsEmptyStringForCookie() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-      'getCurrentUrl',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $access_token = 'at1';
-    $stub = $this->getMock(
-      'FBPublicGetAccessTokenFromCode', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue("access_token=$access_token"));
-    $stub
-      ->expects($this->never())
-      ->method('getCurrentUrl');
-    $this->assertEquals(
-      $access_token, $stub->publicGetAccessTokenFromCode('c', ''));
-  }
-
-  public function testAPIExceptionDuringCodeExchangeIsIgnored() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'FBPublicGetAccessTokenFromCode', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->throwException(new FacebookApiException(false)));
-    $this->assertFalse($stub->publicGetAccessTokenFromCode('c', ''));
-  }
-
-  public function testEmptyResponseInCodeExchangeIsIgnored() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'FBPublicGetAccessTokenFromCode', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue(''));
-    $this->assertFalse($stub->publicGetAccessTokenFromCode('c', ''));
-  }
-
-  public function testExistingStateRestoredInConstructor() {
-    $fb = new FBPublicState(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $this->assertEquals(FBPublicState::STATE, $fb->publicGetState());
-  }
-
-  public function testMissingAccessTokenInCodeExchangeIsIgnored() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'FBPublicGetAccessTokenFromCode', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue('foo=1'));
-    $this->assertFalse($stub->publicGetAccessTokenFromCode('c', ''));
-  }
-
-  public function testExceptionConstructorWithErrorCode() {
-    $code = 404;
-    $e = new FacebookApiException(array('error_code' => $code));
-    $this->assertEquals($code, $e->getCode());
-  }
-
-  // this happens often despite the fact that it is useless
-  public function testExceptionTypeFalse() {
-    $e = new FacebookApiException(false);
-    $this->assertEquals('Exception', $e->getType());
-  }
-
-  public function testExceptionTypeMixedDraft00() {
-    $e = new FacebookApiException(array('error' => array('message' => 'foo')));
-    $this->assertEquals('Exception', $e->getType());
-  }
-
-  public function testExceptionTypeDraft00() {
-    $error = 'foo';
-    $e = new FacebookApiException(
-      array('error' => array('type' => $error, 'message' => 'hello world')));
-    $this->assertEquals($error, $e->getType());
-  }
-
-  public function testExceptionTypeDraft10() {
-    $error = 'foo';
-    $e = new FacebookApiException(array('error' => $error));
-    $this->assertEquals($error, $e->getType());
-  }
-
-  public function testExceptionTypeDefault() {
-    $e = new FacebookApiException(array('error' => false));
-    $this->assertEquals('Exception', $e->getType());
-  }
-
-  public function testExceptionToString() {
-    $e = new FacebookApiException(array(
-      'error_code' => 1,
-      'error_description' => 'foo',
-    ));
-    $this->assertEquals('Exception: 1: foo', (string) $e);
-  }
-
-  public function testDestroyClearsCookie() {
-    $fb = new FBPublicCookie(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $_COOKIE[$fb->publicGetSignedRequestCookieName()] = 'foo';
-    $_COOKIE[$fb->publicGetMetadataCookieName()] = 'base_domain=fbrell.com';
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb->destroySession();
-    $this->assertFalse(
-      array_key_exists($fb->publicGetSignedRequestCookieName(), $_COOKIE));
-  }
-
-  public function testAuthExpireSessionDestroysSession() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-      'destroySession',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $key = 'foo';
-    $val = 42;
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue("{\"$key\":$val}"));
-    $stub
-      ->expects($this->once())
-      ->method('destroySession');
-    $this->assertEquals(
-      array($key => $val),
-      $stub->api(array('method' => 'auth.expireSession'))
-    );
-  }
-
-  public function testLowercaseAuthRevokeAuthDestroysSession() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-      'destroySession',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $key = 'foo';
-    $val = 42;
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue("{\"$key\":$val}"));
-    $stub
-      ->expects($this->once())
-      ->method('destroySession');
-    $this->assertEquals(
-      array($key => $val),
-      $stub->api(array('method' => 'auth.revokeauthorization'))
-    );
-  }
-
-  /**
-   * @expectedException FacebookAPIException
-   */
-  public function testErrorCodeFromRestAPIThrowsException() {
-    $methods_to_stub = array(
-      '_oauthRequest',
-    );
-    $constructor_args = array(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET
-    ));
-    $stub = $this->getMock(
-      'TransientFacebook', $methods_to_stub, $constructor_args);
-    $stub
-      ->expects($this->once())
-      ->method('_oauthRequest')
-      ->will($this->returnValue('{"error_code": 500}'));
-    $stub->api(array('method' => 'foo'));
-  }
-
-  public function testJsonEncodeOfNonStringParams() {
-    $foo = array(1, 2);
-    $params = array(
-      'method' => 'get',
-      'foo' => $foo,
-    );
-    $fb = new FBRecordMakeRequest(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $fb->api('/naitik', $params);
-    $requests = $fb->publicGetRequests();
-    $this->assertEquals(json_encode($foo), $requests[0]['params']['foo']);
-  }
-
-  public function testSessionBackedFacebook() {
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals(
-      $val,
-      $_SESSION[sprintf('fb_%s_%s', self::APP_ID, $key)]
-    );
-    $this->assertEquals(
-      $val,
-      $fb->publicGetPersistentData($key)
-    );
-  }
-
-  public function testSessionBackedFacebookIgnoresUnsupportedKey() {
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = '--invalid--';
-    $val = 'foo';
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertFalse(
-      array_key_exists(
-        sprintf('fb_%s_%s', self::APP_ID, $key),
-        $_SESSION
-      )
-    );
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testClearSessionBackedFacebook() {
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals(
-      $val,
-      $_SESSION[sprintf('fb_%s_%s', self::APP_ID, $key)]
-    );
-    $this->assertEquals(
-      $val,
-      $fb->publicGetPersistentData($key)
-    );
-    $fb->publicClearPersistentData($key);
-    $this->assertFalse(
-      array_key_exists(
-        sprintf('fb_%s_%s', self::APP_ID, $key),
-        $_SESSION
-      )
-    );
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testSessionBackedFacebookIgnoresUnsupportedKeyInClear() {
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = '--invalid--';
-    $val = 'foo';
-    $session_var_name = sprintf('fb_%s_%s', self::APP_ID, $key);
-    $_SESSION[$session_var_name] = $val;
-    $fb->publicClearPersistentData($key);
-    $this->assertTrue(array_key_exists($session_var_name, $_SESSION));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testClearAllSessionBackedFacebook() {
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $session_var_name = sprintf('fb_%s_%s', self::APP_ID, $key);
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals($val, $_SESSION[$session_var_name]);
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-    $fb->publicClearAllPersistentData();
-    $this->assertFalse(array_key_exists($session_var_name, $_SESSION));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedSessionBackedFacebook() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $fb->publicGetSharedSessionID(),
-      self::APP_ID,
-      $key
-    );
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals($val, $_SESSION[$session_var_name]);
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedSessionBackedFacebookIgnoresUnsupportedKey() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = '--invalid--';
-    $val = 'foo';
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $fb->publicGetSharedSessionID(),
-      self::APP_ID,
-      $key
-    );
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertFalse(array_key_exists($session_var_name, $_SESSION));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedClearSessionBackedFacebook() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $fb->publicGetSharedSessionID(),
-      self::APP_ID,
-      $key
-    );
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals($val, $_SESSION[$session_var_name]);
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-    $fb->publicClearPersistentData($key);
-    $this->assertFalse(array_key_exists($session_var_name, $_SESSION));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedSessionBackedFacebookIgnoresUnsupportedKeyInClear() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = '--invalid--';
-    $val = 'foo';
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $fb->publicGetSharedSessionID(),
-      self::APP_ID,
-      $key
-    );
-    $_SESSION[$session_var_name] = $val;
-    $fb->publicClearPersistentData($key);
-    $this->assertTrue(array_key_exists($session_var_name, $_SESSION));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedClearAllSessionBackedFacebook() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $fb->publicGetSharedSessionID(),
-      self::APP_ID,
-      $key
-    );
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals($val, $_SESSION[$session_var_name]);
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-    $fb->publicClearAllPersistentData();
-    $this->assertFalse(array_key_exists($session_var_name, $_SESSION));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedSessionBackedFacebookIsRestored() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $shared_session_id = $fb->publicGetSharedSessionID();
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $shared_session_id,
-      self::APP_ID,
-      $key
-    );
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals($val, $_SESSION[$session_var_name]);
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-
-    // check the new instance has the same data
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $this->assertEquals(
-      $shared_session_id,
-      $fb->publicGetSharedSessionID()
-    );
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-  }
-
-  public function testSharedSessionBackedFacebookIsNotRestoredWhenCorrupt() {
-    $_SERVER['HTTP_HOST'] = 'fbrell.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $key = 'state';
-    $val = 'foo';
-    $shared_session_id = $fb->publicGetSharedSessionID();
-    $session_var_name = sprintf(
-      '%s_fb_%s_%s',
-      $shared_session_id,
-      self::APP_ID,
-      $key
-    );
-    $fb->publicSetPersistentData($key, $val);
-    $this->assertEquals($val, $_SESSION[$session_var_name]);
-    $this->assertEquals($val, $fb->publicGetPersistentData($key));
-
-    // break the cookie
-    $cookie_name = $fb->publicGetSharedSessionCookieName();
-    $_COOKIE[$cookie_name] = substr($_COOKIE[$cookie_name], 1);
-
-    // check the new instance does not have the data
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'sharedSession' => true,
-    ));
-    $this->assertFalse($fb->publicGetPersistentData($key));
-    $this->assertNotEquals(
-      $shared_session_id,
-      $fb->publicGetSharedSessionID()
-    );
-  }
-
-  public function testHttpHost() {
-    $real = 'foo.com';
-    $_SERVER['HTTP_HOST'] = $real;
-    $_SERVER['HTTP_X_FORWARDED_HOST'] = 'evil.com';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $this->assertEquals($real, $fb->publicGetHttpHost());
-  }
-
-  public function testHttpProtocol() {
-    $_SERVER['HTTPS'] = 'on';
-    $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'http';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-    ));
-    $this->assertEquals('https', $fb->publicGetHttpProtocol());
-  }
-
-  public function testHttpHostForwarded() {
-    $real = 'foo.com';
-    $_SERVER['HTTP_HOST'] = 'localhost';
-    $_SERVER['HTTP_X_FORWARDED_HOST'] = $real;
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'trustForwarded' => true,
-    ));
-    $this->assertEquals($real, $fb->publicGetHttpHost());
-  }
-
-  public function testHttpProtocolForwarded() {
-    $_SERVER['HTTPS'] = 'on';
-    $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'http';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'trustForwarded' => true,
-    ));
-    $this->assertEquals('http', $fb->publicGetHttpProtocol());
-  }
-
-  public function testHttpProtocolForwardedSecure() {
-    $_SERVER['HTTPS'] = 'on';
-    $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
-    $fb = new PersistentFBPublic(array(
-      'appId'  => self::APP_ID,
-      'secret' => self::SECRET,
-      'trustForwarded' => true,
-    ));
-    $this->assertEquals('https', $fb->publicGetHttpProtocol());
-  }
-
-  /**
-   * @dataProvider provideEndsWith
-   */
-  public function testEndsWith($big, $small, $result) {
-    $this->assertEquals(
-      $result,
-      PersistentFBPublic::publicEndsWith($big, $small)
-    );
-  }
-
-  public function provideEndsWith() {
-    return array(
-      array('', '', true),
-      array('', 'a', false),
-      array('a', '', true),
-      array('a', 'b', false),
-      array('a', 'a', true),
-      array('aa', 'a', true),
-      array('ab', 'a', false),
-      array('ba', 'a', true),
-    );
-  }
-
-  /**
-   * @dataProvider provideIsAllowedDomain
-   */
-  public function testIsAllowedDomain($big, $small, $result) {
-    $this->assertEquals(
-      $result,
-      PersistentFBPublic::publicIsAllowedDomain($big, $small)
-    );
-  }
-
-  public function provideIsAllowedDomain() {
-    return array(
-      array('fbrell.com', 'fbrell.com', true),
-      array('foo.fbrell.com', 'fbrell.com', true),
-      array('foofbrell.com', 'fbrell.com', false),
-      array('evil.com', 'fbrell.com', false),
-      array('foo.fbrell.com', 'bar.fbrell.com', false),
-    );
-  }
-
-  protected function generateMD5HashOfRandomValue() {
-    return md5(uniqid(mt_rand(), true));
-  }
-
-  protected function setUp() {
-    parent::setUp();
-  }
-
-  protected function tearDown() {
-    $this->clearSuperGlobals();
-    parent::tearDown();
-  }
-
-  protected function clearSuperGlobals() {
-    unset($_SERVER['HTTPS']);
-    unset($_SERVER['HTTP_HOST']);
-    unset($_SERVER['REQUEST_URI']);
-    $_SESSION = array();
-    $_COOKIE = array();
-    $_REQUEST = array();
-    $_POST = array();
-    $_GET = array();
-    if (session_id()) {
-      session_destroy();
-    }
-  }
-
-  /**
-   * Checks that the correct args are a subset of the returned obj
-   * @param  array $correct The correct array values
-   * @param  array $actual  The values in practice
-   * @param  string $message to be shown on failure
-   */
-  protected function assertIsSubset($correct, $actual, $msg='') {
-    foreach ($correct as $key => $value) {
-      $actual_value = $actual[$key];
-      $newMsg = (strlen($msg) ? ($msg.' ') : '').'Key: '.$key;
-      $this->assertEquals($value, $actual_value, $newMsg);
-    }
-  }
+#endif
+    return NO;
 }
 
-class TransientFacebook extends BaseFacebook {
-  protected function setPersistentData($key, $value) {}
-  protected function getPersistentData($key, $default = false) {
-    return $default;
-  }
-  protected function clearPersistentData($key) {}
-  protected function clearAllPersistentData() {}
-}
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
-class FBRecordURL extends TransientFacebook {
-  private $url;
+@implementation FBDialog
 
-  protected function _oauthRequest($url, $params) {
-    $this->url = $url;
-  }
+@synthesize delegate = _delegate,
+params   = _params;
 
-  public function getRequestedURL() {
-    return $this->url;
-  }
-}
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// private
 
-class FBRecordMakeRequest extends TransientFacebook {
-  private $requests = array();
-
-  protected function makeRequest($url, $params, $ch=null) {
-    $this->requests[] = array(
-      'url' => $url,
-      'params' => $params,
-    );
-    return parent::makeRequest($url, $params, $ch);
-  }
-
-  public function publicGetRequests() {
-    return $this->requests;
-  }
-}
-
-class FBPublic extends TransientFacebook {
-  public static function publicBase64UrlDecode($input) {
-    return self::base64UrlDecode($input);
-  }
-  public function publicParseSignedRequest($input) {
-    return $this->parseSignedRequest($input);
-  }
-  public function publicMakeSignedRequest($data) {
-    return $this->makeSignedRequest($data);
-  }
-}
-
-class PersistentFBPublic extends Facebook {
-  public function publicParseSignedRequest($input) {
-    return $this->parseSignedRequest($input);
-  }
-
-  public function publicSetPersistentData($key, $value) {
-    $this->setPersistentData($key, $value);
-  }
-
-  public function publicGetPersistentData($key, $default = false) {
-    return $this->getPersistentData($key, $default);
-  }
-
-  public function publicClearPersistentData($key) {
-    return $this->clearPersistentData($key);
-  }
-
-  public function publicClearAllPersistentData() {
-    return $this->clearAllPersistentData();
-  }
-
-  public function publicGetSharedSessionID() {
-    return $this->sharedSessionID;
-  }
-
-  public static function publicIsAllowedDomain($big, $small) {
-    return self::isAllowedDomain($big, $small);
-  }
-
-  public static function publicEndsWith($big, $small) {
-    return self::endsWith($big, $small);
-  }
-
-  public function publicGetSharedSessionCookieName() {
-    return $this->getSharedSessionCookieName();
-  }
-
-  public function publicGetHttpHost() {
-    return $this->getHttpHost();
-  }
-
-  public function publicGetHttpProtocol() {
-    return $this->getHttpProtocol();
-  }
-}
-
-class FBCode extends Facebook {
-  public function publicGetCode() {
-    return $this->getCode();
-  }
-
-  public function setCSRFStateToken() {
-    $this->establishCSRFTokenState();
-  }
-
-  public function getCSRFStateToken() {
-    return $this->getPersistentData('state');
-  }
-}
-
-class FBAccessToken extends TransientFacebook {
-  public function publicGetApplicationAccessToken() {
-    return $this->getApplicationAccessToken();
-  }
-}
-
-class FBGetCurrentURLFacebook extends TransientFacebook {
-  public function publicGetCurrentUrl() {
-    return $this->getCurrentUrl();
-  }
-}
-
-class FBPublicCookie extends TransientFacebook {
-  public function publicGetSignedRequest() {
-    return $this->getSignedRequest();
-  }
-
-  public function publicGetSignedRequestCookieName() {
-    return $this->getSignedRequestCookieName();
-  }
-
-  public function publicGetMetadataCookie() {
-    return $this->getMetadataCookie();
-  }
-
-  public function publicGetMetadataCookieName() {
-    return $this->getMetadataCookieName();
-  }
-}
-
-
-class FBPublicGetAccessTokenFromCode extends TransientFacebook {
-  public function publicGetAccessTokenFromCode($code, $redirect_uri = null) {
-    return $this->getAccessTokenFromCode($code, $redirect_uri);
-  }
-}
-
-class FBPublicState extends TransientFacebook {
-  const STATE = 'foo';
-  protected function getPersistentData($key, $default = false) {
-    if ($key === 'state') {
-      return self::STATE;
+- (void)addRoundedRectToPath:(CGContextRef)context rect:(CGRect)rect radius:(float)radius {
+    CGContextBeginPath(context);
+    CGContextSaveGState(context);
+    
+    if (radius == 0) {
+        CGContextTranslateCTM(context, CGRectGetMinX(rect), CGRectGetMinY(rect));
+        CGContextAddRect(context, rect);
+    } else {
+        rect = CGRectOffset(CGRectInset(rect, 0.5, 0.5), 0.5, 0.5);
+        CGContextTranslateCTM(context, CGRectGetMinX(rect)-0.5, CGRectGetMinY(rect)-0.5);
+        CGContextScaleCTM(context, radius, radius);
+        float fw = CGRectGetWidth(rect) / radius;
+        float fh = CGRectGetHeight(rect) / radius;
+        
+        CGContextMoveToPoint(context, fw, fh/2);
+        CGContextAddArcToPoint(context, fw, fh, fw/2, fh, 1);
+        CGContextAddArcToPoint(context, 0, fh, 0, fh/2, 1);
+        CGContextAddArcToPoint(context, 0, 0, fw/2, 0, 1);
+        CGContextAddArcToPoint(context, fw, 0, fw, fh/2, 1);
     }
-    return parent::getPersistentData($key, $default);
-  }
-
-  public function publicGetState() {
-    return $this->state;
-  }
+    
+    CGContextClosePath(context);
+    CGContextRestoreGState(context);
 }
+
+- (void)drawRect:(CGRect)rect fill:(const CGFloat*)fillColors radius:(CGFloat)radius {
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    
+    if (fillColors) {
+        CGContextSaveGState(context);
+        CGContextSetFillColor(context, fillColors);
+        if (radius) {
+            [self addRoundedRectToPath:context rect:rect radius:radius];
+            CGContextFillPath(context);
+        } else {
+            CGContextFillRect(context, rect);
+        }
+        CGContextRestoreGState(context);
+    }
+    
+    CGColorSpaceRelease(space);
+}
+
+- (void)strokeLines:(CGRect)rect stroke:(const CGFloat*)strokeColor {
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+    
+    CGContextSaveGState(context);
+    CGContextSetStrokeColorSpace(context, space);
+    CGContextSetStrokeColor(context, strokeColor);
+    CGContextSetLineWidth(context, 1.0);
+    
+    {
+        CGPoint points[] = {{rect.origin.x+0.5, rect.origin.y-0.5},
+            {rect.origin.x+rect.size.width, rect.origin.y-0.5}};
+        CGContextStrokeLineSegments(context, points, 2);
+    }
+    {
+        CGPoint points[] = {{rect.origin.x+0.5, rect.origin.y+rect.size.height-0.5},
+            {rect.origin.x+rect.size.width-0.5, rect.origin.y+rect.size.height-0.5}};
+        CGContextStrokeLineSegments(context, points, 2);
+    }
+    {
+        CGPoint points[] = {{rect.origin.x+rect.size.width-0.5, rect.origin.y},
+            {rect.origin.x+rect.size.width-0.5, rect.origin.y+rect.size.height}};
+        CGContextStrokeLineSegments(context, points, 2);
+    }
+    {
+        CGPoint points[] = {{rect.origin.x+0.5, rect.origin.y},
+            {rect.origin.x+0.5, rect.origin.y+rect.size.height}};
+        CGContextStrokeLineSegments(context, points, 2);
+    }
+    
+    CGContextRestoreGState(context);
+    
+    CGColorSpaceRelease(space);
+}
+
+- (BOOL)shouldRotateToOrientation:(UIInterfaceOrientation)orientation {
+    if (orientation == _orientation) {
+        return NO;
+    } else {
+        return orientation == UIInterfaceOrientationPortrait
+        || orientation == UIInterfaceOrientationPortraitUpsideDown
+        || orientation == UIInterfaceOrientationLandscapeLeft
+        || orientation == UIInterfaceOrientationLandscapeRight;
+    }
+}
+
+- (CGAffineTransform)transformForOrientation {
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (orientation == UIInterfaceOrientationLandscapeLeft) {
+        return CGAffineTransformMakeRotation(M_PI*1.5);
+    } else if (orientation == UIInterfaceOrientationLandscapeRight) {
+        return CGAffineTransformMakeRotation(M_PI/2);
+    } else if (orientation == UIInterfaceOrientationPortraitUpsideDown) {
+        return CGAffineTransformMakeRotation(-M_PI);
+    } else {
+        return CGAffineTransformIdentity;
+    }
+}
+
+- (void)sizeToFitOrientation:(BOOL)transform {
+    if (transform) {
+        self.transform = CGAffineTransformIdentity;
+    }
+    
+    CGRect frame = [UIScreen mainScreen].applicationFrame;
+    CGPoint center = CGPointMake(
+                                 frame.origin.x + ceil(frame.size.width/2),
+                                 frame.origin.y + ceil(frame.size.height/2));
+    
+    CGFloat scale_factor = 1.0f;
+    if (FBIsDeviceIPad()) {
+        // On the iPad the dialog's dimensions should only be 60% of the screen's
+        scale_factor = 0.6f;
+    }
+    
+    CGFloat width = floor(scale_factor * frame.size.width) - kPadding * 2;
+    CGFloat height = floor(scale_factor * frame.size.height) - kPadding * 2;
+    
+    _orientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (UIInterfaceOrientationIsLandscape(_orientation)) {
+        self.frame = CGRectMake(kPadding, kPadding, height, width);
+    } else {
+        self.frame = CGRectMake(kPadding, kPadding, width, height);
+    }
+    self.center = center;
+    
+    if (transform) {
+        self.transform = [self transformForOrientation];
+    }
+}
+
+- (void)updateWebOrientation {
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (UIInterfaceOrientationIsLandscape(orientation)) {
+        [_webView stringByEvaluatingJavaScriptFromString:
+         @"document.body.setAttribute('orientation', 90);"];
+    } else {
+        [_webView stringByEvaluatingJavaScriptFromString:
+         @"document.body.removeAttribute('orientation');"];
+    }
+}
+
+- (void)bounce1AnimationStopped {
+    [UIView beginAnimations:nil context:nil];
+    [UIView setAnimationDuration:kTransitionDuration/2];
+    [UIView setAnimationDelegate:self];
+    [UIView setAnimationDidStopSelector:@selector(bounce2AnimationStopped)];
+    self.transform = CGAffineTransformScale([self transformForOrientation], 0.9, 0.9);
+    [UIView commitAnimations];
+}
+
+- (void)bounce2AnimationStopped {
+    [UIView beginAnimations:nil context:nil];
+    [UIView setAnimationDuration:kTransitionDuration/2];
+    self.transform = [self transformForOrientation];
+    [UIView commitAnimations];
+}
+
+- (NSURL*)generateURL:(NSString*)baseURL params:(NSDictionary*)params {
+    if (params) {
+        NSMutableArray* pairs = [NSMutableArray array];
+        for (NSString* key in params.keyEnumerator) {
+            NSString* value = [params objectForKey:key];
+            NSString* escaped_value = (NSString *)CFURLCreateStringByAddingPercentEscapes(
+                                                                                          NULL, /* allocator */
+                                                                                          (CFStringRef)value,
+                                                                                          NULL, /* charactersToLeaveUnescaped */
+                                                                                          (CFStringRef)@"!*'();:@&=+$,/?%#[]",
+                                                                                          kCFStringEncodingUTF8);
+            
+            [pairs addObject:[NSString stringWithFormat:@"%@=%@", key, escaped_value]];
+            [escaped_value release];
+        }
+        
+        NSString* query = [pairs componentsJoinedByString:@"&"];
+        NSString* url = [NSString stringWithFormat:@"%@?%@", baseURL, query];
+        return [NSURL URLWithString:url];
+    } else {
+        return [NSURL URLWithString:baseURL];
+    }
+}
+
+- (void)addObservers {
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(deviceOrientationDidChange:)
+                                                 name:@"UIDeviceOrientationDidChangeNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillShow:) name:@"UIKeyboardWillShowNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillHide:) name:@"UIKeyboardWillHideNotification" object:nil];
+}
+
+- (void)removeObservers {
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:@"UIDeviceOrientationDidChangeNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:@"UIKeyboardWillShowNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:@"UIKeyboardWillHideNotification" object:nil];
+}
+
+- (void)postDismissCleanup {
+    [self removeObservers];
+    [self removeFromSuperview];
+    [_modalBackgroundView removeFromSuperview];
+}
+
+- (void)dismiss:(BOOL)animated {
+    [self dialogWillDisappear];
+
+    // If the dialog has been closed, then we need to cancel the order to open it.  
+    // This happens in the case of a frictionless request, see webViewDidFinishLoad for details	
+    [NSObject cancelPreviousPerformRequestsWithTarget:self 
+                                             selector:@selector(showWebView)
+                                               object:nil];
+
+    [_loadingURL release];
+    _loadingURL = nil;
+    
+    if (animated) {
+        [UIView beginAnimations:nil context:nil];
+        [UIView setAnimationDuration:kTransitionDuration];
+        [UIView setAnimationDelegate:self];
+        [UIView setAnimationDidStopSelector:@selector(postDismissCleanup)];
+        self.alpha = 0;
+        [UIView commitAnimations];
+    } else {
+        [self postDismissCleanup];
+    }
+}
+
+- (void)cancel {
+    [self dialogDidCancel:nil];
+}
+
+- (BOOL)testBoolUrlParam:(NSURL *)url param:(NSString *)param {
+    NSString *paramVal = [self getStringFromUrl: [url absoluteString] 
+                                         needle: param];
+    return [paramVal boolValue];
+}
+
+- (void)dialogSuccessHandleFrictionlessResponses:(NSURL *)url {
+    // did we receive a recipient list?
+    NSString *recipientJson = [self getStringFromUrl:[url absoluteString]
+                                              needle:@"frictionless_recipients="];
+    if (recipientJson) {
+        // if value parses as an array, treat as set of fbids
+        SBJsonParser *parser = [[[SBJsonParser alloc]
+                                 init]
+                                autorelease];
+        id recipients = [parser objectWithString:recipientJson];
+
+        // if we got something usable, copy the ids out and update the cache
+        if ([recipients isKindOfClass:[NSArray class]]) { 
+            NSMutableArray *ids = [[[NSMutableArray alloc]
+                                    initWithCapacity:[recipients count]]
+                                   autorelease];
+            for (id recipient in recipients) {
+                NSString *fbid = [NSString stringWithFormat:@"%@", recipient];
+                [ids addObject:fbid];
+            }
+            // we may be tempted to terminate outstanding requests before this
+            // point, but that would cause problems if the user cancelled a dialog
+            [_frictionlessSettings updateRecipientCacheWithRecipients:ids];
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// NSObject
+
+- (id)init {
+    if ((self = [super initWithFrame:CGRectZero])) {
+        _delegate = nil;
+        _loadingURL = nil;
+        _showingKeyboard = NO;
+        
+        self.backgroundColor = [UIColor clearColor];
+        self.autoresizesSubviews = YES;
+        self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        self.contentMode = UIViewContentModeRedraw;
+        
+        _webView = [[UIWebView alloc] initWithFrame:CGRectMake(kPadding, kPadding, 480, 480)];
+        _webView.delegate = self;
+        _webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [self addSubview:_webView];
+        
+        UIImage* closeImage = [UIImage imageNamed:@"FBDialog.bundle/images/close.png"];
+        
+        UIColor* color = [UIColor colorWithRed:167.0/255 green:184.0/255 blue:216.0/255 alpha:1];
+        _closeButton = [[UIButton buttonWithType:UIButtonTypeCustom] retain];
+        [_closeButton setImage:closeImage forState:UIControlStateNormal];
+        [_closeButton setTitleColor:color forState:UIControlStateNormal];
+        [_closeButton setTitleColor:[UIColor whiteColor] forState:UIControlStateHighlighted];
+        [_closeButton addTarget:self action:@selector(cancel)
+               forControlEvents:UIControlEventTouchUpInside];
+        
+        // To be compatible with OS 2.x
+#if __IPHONE_OS_VERSION_MAX_ALLOWED <= __IPHONE_2_2
+        _closeButton.font = [UIFont boldSystemFontOfSize:12];
+#else
+        _closeButton.titleLabel.font = [UIFont boldSystemFontOfSize:12];
+#endif
+        
+        _closeButton.showsTouchWhenHighlighted = YES;
+        _closeButton.autoresizingMask = UIViewAutoresizingFlexibleRightMargin
+        | UIViewAutoresizingFlexibleBottomMargin;
+        [self addSubview:_closeButton];
+        
+        _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:
+                    UIActivityIndicatorViewStyleWhiteLarge];
+        if ([_spinner respondsToSelector:@selector(setColor:)]) {
+            [_spinner setColor:[UIColor grayColor]];
+        } else {
+            [_spinner setActivityIndicatorViewStyle:UIActivityIndicatorViewStyleGray];
+        }
+        _spinner.autoresizingMask =
+        UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin
+        | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+        [self addSubview:_spinner];
+        _modalBackgroundView = [[UIView alloc] init];
+    }
+    return self;
+}
+
+- (void)dealloc {
+    _webView.delegate = nil;
+    [_webView release];
+    [_params release];
+    [_serverURL release];
+    [_spinner release];
+    [_closeButton release];
+    [_loadingURL release];
+    [_modalBackgroundView release];
+    [_frictionlessSettings release];
+    [super dealloc];
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// UIView
+
+- (void)drawRect:(CGRect)rect {
+    [self drawRect:rect fill:kBorderGray radius:0];
+    
+    CGRect webRect = CGRectMake(
+                                ceil(rect.origin.x + kBorderWidth), ceil(rect.origin.y + kBorderWidth)+1,
+                                rect.size.width - kBorderWidth*2, _webView.frame.size.height+1);
+    
+    [self strokeLines:webRect stroke:kBorderBlack];
+}
+
+// Display the dialog's WebView with a slick pop-up animation	
+- (void)showWebView {	
+    UIWindow* window = [UIApplication sharedApplication].keyWindow;	
+    if (!window) {	
+        window = [[UIApplication sharedApplication].windows objectAtIndex:0];	
+    }	
+    _modalBackgroundView.frame = window.frame;	
+    [_modalBackgroundView addSubview:self];	
+    [window addSubview:_modalBackgroundView];	
+    
+    self.transform = CGAffineTransformScale([self transformForOrientation], 0.001, 0.001);	
+    [UIView beginAnimations:nil context:nil];	
+    [UIView setAnimationDuration:kTransitionDuration/1.5];	
+    [UIView setAnimationDelegate:self];	
+    [UIView setAnimationDidStopSelector:@selector(bounce1AnimationStopped)];	
+    self.transform = CGAffineTransformScale([self transformForOrientation], 1.1, 1.1);	
+    [UIView commitAnimations];	
+    
+    [self dialogWillAppear];	
+    [self addObservers];	
+}	
+
+// Show a spinner during the loading time for the dialog. This is designed to show	
+// on top of the webview but before the contents have loaded.	
+- (void)showSpinner {	
+    [_spinner sizeToFit];	
+    [_spinner startAnimating];	
+    _spinner.center = _webView.center;	
+}	
+
+- (void)hideSpinner {	
+    [_spinner stopAnimating];	
+    _spinner.hidden = YES;	
+}	
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// UIWebViewDelegate
+
+- (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request
+ navigationType:(UIWebViewNavigationType)navigationType {
+    NSURL* url = request.URL;
+    
+    if ([url.scheme isEqualToString:@"fbconnect"]) {
+        if ([[url.resourceSpecifier substringToIndex:8] isEqualToString:@"//cancel"]) {
+            NSString * errorCode = [self getStringFromUrl:[url absoluteString] needle:@"error_code="];
+            NSString * errorStr = [self getStringFromUrl:[url absoluteString] needle:@"error_msg="];
+            if (errorCode) {
+                NSDictionary * errorData = [NSDictionary dictionaryWithObject:errorStr forKey:@"error_msg"];
+                NSError * error = [NSError errorWithDomain:@"facebookErrDomain"
+                                                      code:[errorCode intValue]
+                                                  userInfo:errorData];
+                [self dismissWithError:error animated:YES];
+            } else {
+                [self dialogDidCancel:url];
+            }
+        } else {
+            if (_frictionlessSettings.enabled) {
+                [self dialogSuccessHandleFrictionlessResponses:url];
+            }
+            [self dialogDidSucceed:url];
+        }
+        return NO;
+    } else if ([_loadingURL isEqual:url]) {
+        return YES;
+    } else if (navigationType == UIWebViewNavigationTypeLinkClicked) {
+        if ([_delegate respondsToSelector:@selector(dialog:shouldOpenURLInExternalBrowser:)]) {
+            if (![_delegate dialog:self shouldOpenURLInExternalBrowser:url]) {
+                return NO;
+            }
+        }
+        
+        [[UIApplication sharedApplication] openURL:request.URL];
+        return NO;
+    } else {
+        return YES;
+    }
+}
+
+- (void)webViewDidFinishLoad:(UIWebView *)webView {
+    if (_isViewInvisible) {
+        // if our cache asks us to hide the view, then we do, but
+        // in case of a stale cache, we will display the view in a moment
+        // note that showing the view now would cause a visible white
+        // flash in the common case where the cache is up to date
+        [self performSelector:@selector(showWebView) withObject:nil afterDelay:.05]; 	
+    } else {
+        [self hideSpinner];	
+    }
+    [self updateWebOrientation];
+}
+
+- (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error {
+    // 102 == WebKitErrorFrameLoadInterruptedByPolicyChange
+    // -999 == "Operation could not be completed", note -999 occurs when the user clicks away before
+    // the page has completely loaded, if we find cases where we want this to result in dialog failure
+    // (usually this just means quick-user), then we should add something more robust here to account
+    // for differences in application needs
+    if (!(([error.domain isEqualToString:@"NSURLErrorDomain"] && error.code == -999) ||
+          ([error.domain isEqualToString:@"WebKitErrorDomain"] && error.code == 102))) {
+        [self dismissWithError:error animated:YES];
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// UIDeviceOrientationDidChangeNotification
+
+- (void)deviceOrientationDidChange:(void*)object {
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (!_showingKeyboard && [self shouldRotateToOrientation:orientation]) {
+        [self updateWebOrientation];
+        
+        CGFloat duration = [UIApplication sharedApplication].statusBarOrientationAnimationDuration;
+        [UIView beginAnimations:nil context:nil];
+        [UIView setAnimationDuration:duration];
+        [self sizeToFitOrientation:YES];
+        [UIView commitAnimations];
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// UIKeyboardNotifications
+
+- (void)keyboardWillShow:(NSNotification*)notification {
+    
+    _showingKeyboard = YES;
+    
+    if (FBIsDeviceIPad()) {
+        // On the iPad the screen is large enough that we don't need to
+        // resize the dialog to accomodate the keyboard popping up
+        return;
+    }
+    
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (UIInterfaceOrientationIsLandscape(orientation)) {
+        _webView.frame = CGRectInset(_webView.frame,
+                                     -(kPadding + kBorderWidth),
+                                     -(kPadding + kBorderWidth));
+    }
+}
+
+- (void)keyboardWillHide:(NSNotification*)notification {
+    _showingKeyboard = NO;
+    
+    if (FBIsDeviceIPad()) {
+        return;
+    }
+    UIInterfaceOrientation orientation = [UIApplication sharedApplication].statusBarOrientation;
+    if (UIInterfaceOrientationIsLandscape(orientation)) {
+        _webView.frame = CGRectInset(_webView.frame,
+                                     kPadding + kBorderWidth,
+                                     kPadding + kBorderWidth);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// public
+
+/**
+ * Find a specific parameter from the url
+ */
+- (NSString *) getStringFromUrl: (NSString*) url needle:(NSString *) needle {
+    NSString * str = nil;
+    NSRange start = [url rangeOfString:needle];
+    if (start.location != NSNotFound) {
+        // confirm that the parameter is not a partial name match
+        unichar c = '?';
+        if (start.location != 0) {
+            c = [url characterAtIndex:start.location - 1];
+        }
+        if (c == '?' || c == '&' || c == '#') {        
+            NSRange end = [[url substringFromIndex:start.location+start.length] rangeOfString:@"&"];
+            NSUInteger offset = start.location+start.length;
+            str = end.location == NSNotFound ?
+                [url substringFromIndex:offset] : 
+                [url substringWithRange:NSMakeRange(offset, end.location)];
+            str = [str stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+        }
+    }    
+    return str;
+}
+
+- (id)initWithURL: (NSString *) serverURL
+           params: (NSMutableDictionary *) params
+  isViewInvisible: (BOOL)isViewInvisible
+     frictionlessSettings: (FBFrictionlessRequestSettings*) frictionlessSettings
+         delegate: (id <FBDialogDelegate>) delegate {
+    
+    self = [self init];
+    _serverURL = [serverURL retain];
+    _params = [params retain];    
+    _delegate = delegate;
+    _isViewInvisible = isViewInvisible;
+    _frictionlessSettings = [frictionlessSettings retain];
+    
+    return self;
+}
+
+- (void)load {
+    [self loadURL:_serverURL get:_params];
+}
+
+- (void)loadURL:(NSString*)url get:(NSDictionary*)getParams {
+
+    [_loadingURL release];
+    _loadingURL = [[self generateURL:url params:getParams] retain];
+    NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:_loadingURL];
+    
+    [_webView loadRequest:request];
+}
+
+- (void)show {
+    [self load];
+    [self sizeToFitOrientation:NO];
+    
+    CGFloat innerWidth = self.frame.size.width - (kBorderWidth+1)*2;
+    [_closeButton sizeToFit];
+    
+    _closeButton.frame = CGRectMake(
+                                    2,
+                                    2,
+                                    29,
+                                    29);
+    
+    _webView.frame = CGRectMake(
+                                kBorderWidth+1,
+                                kBorderWidth+1,
+                                innerWidth,
+                                self.frame.size.height - (1 + kBorderWidth*2));
+    
+    if (!_isViewInvisible) {	
+        [self showSpinner];	
+        [self showWebView];
+    }
+}
+
+- (void)dismissWithSuccess:(BOOL)success animated:(BOOL)animated {
+    if (success) {
+        if ([_delegate respondsToSelector:@selector(dialogDidComplete:)]) {
+            [_delegate dialogDidComplete:self];
+        }
+    } else {
+        if ([_delegate respondsToSelector:@selector(dialogDidNotComplete:)]) {
+            [_delegate dialogDidNotComplete:self];
+        }
+    }
+    
+    [self dismiss:animated];
+}
+
+- (void)dismissWithError:(NSError*)error animated:(BOOL)animated {
+    if ([_delegate respondsToSelector:@selector(dialog:didFailWithError:)]) {
+        [_delegate dialog:self didFailWithError:error];
+    }
+    
+    [self dismiss:animated];
+}
+
+- (void)dialogWillAppear {
+}
+
+- (void)dialogWillDisappear {
+}
+
+- (void)dialogDidSucceed:(NSURL *)url {
+    
+    if ([_delegate respondsToSelector:@selector(dialogCompleteWithUrl:)]) {
+        [_delegate dialogCompleteWithUrl:url];
+    }
+    [self dismissWithSuccess:YES animated:YES];
+}
+
+- (void)dialogDidCancel:(NSURL *)url {
+    if ([_delegate respondsToSelector:@selector(dialogDidNotCompleteWithUrl:)]) {
+        [_delegate dialogDidNotCompleteWithUrl:url];
+    }
+    [self dismissWithSuccess:NO animated:YES];
+}
+
+@end
+
